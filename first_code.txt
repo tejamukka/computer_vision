@@ -1,0 +1,211 @@
+#include "opencv2/highgui.hpp"
+#include <iostream>
+#include <tuple>
+#include <math.h>
+
+
+using namespace cv;
+using namespace std;
+
+
+struct divide_result {
+	float R;
+	float G;
+	float B;
+	};
+
+std::tuple<double, double,double>	convertXYZtoRGB(double X, double Y, double Z) {
+	double lin_R, lin_G, lin_B;
+		lin_R = 3.240479*X - 1.537515*Y - 0.498535*Z;
+		lin_G = -0.969256*X +1.875991*Y + 0.041556*Z;
+		lin_B = 0.055648*X -0.2040431*Y + 1.057311*Z;
+
+
+		return std::make_tuple(lin_R, lin_G, lin_B);
+}
+
+std::tuple<double, double, double>	convertLinRGB_2_NonlinRGB(double R, double G, double B) {
+	double nonLin_R, nonLin_G, nonLin_B;
+	if (R < 0.00304) {
+		nonLin_R = 12.92*R;
+	}
+	else {
+		nonLin_R = 1.055*pow(R, 1 / 2.4) - 0.055;
+	}
+
+	if (G< 0.00304) {
+		nonLin_G = 12.92*G;
+	}
+	else {
+		nonLin_G = 1.055*pow(G, 1 / 2.4) - 0.055;
+	}
+	if (B < 0.00304) {
+		nonLin_B = 12.92*B;
+	}
+	else {
+		nonLin_B = 1.055*pow(B, 1 / 2.4) - 0.055;
+	}
+
+
+	return std::make_tuple(nonLin_R, nonLin_G, nonLin_B);
+}
+
+
+
+std::tuple<double, double, double> convertLuv2XYZ(double L,double u, double v) {
+	double L_X, L_Y, L_Z;
+	double denom = 0.95 + 15 + (3 * 1.09);
+	double u_w = (4 * (0.95)) / denom;
+	double v_w = 9 / denom;
+	double denom2 = 13 * L;
+	double u_dash = (u + 13 * (u_w)*L) / denom2;
+	double v_dash = (v + 13 * (v_w)*L) / denom2;
+	if (L > 7.9996) {
+		double temp = (L + 16) / 116;
+		L_Y = pow(temp, 3);
+	}
+	else {
+		L_Y = L / 903.3;
+	}
+	
+	L_X = L_Y *2.25*(u_dash / v_dash);
+	L_Z = L_Y*((3 - (.75*u_dash) - 5 * v_dash)/v_dash);
+	return std::make_tuple(L_X,L_Y,L_Z);
+
+}
+
+int main(int argc, char** argv) {
+	/*if (argc != 3) {
+		cout << argv[0] << ": "
+			<< "got " << argc - 1 << " arguments. Expecting two: width height."
+			<< endl;
+		return(-1);
+	}*/
+	int width = 500;
+	int height = 500;
+	//int width = atoi(argv[1]);
+	//int height = atoi(argv[2]);
+	int** RED1 = new int*[height];
+	int** GREEN1 = new int*[height];
+	int** BLUE1 = new int*[height];
+	int** RED2 = new int*[height];
+	int** GREEN2 = new int*[height];
+	int** BLUE2 = new int*[height];
+
+	for (int i = 0; i < height; i++) {
+		RED1[i] = new int[width];
+		GREEN1[i] = new int[width];
+		BLUE1[i] = new int[width];
+		RED2[i] = new int[width];
+		GREEN2[i] = new int[width];
+		BLUE2[i] = new int[width];
+	}
+
+	for (int i = 0; i < height; i++)
+		for (int j = 0; j < width; j++)
+		{
+			int r1, g1, b1;
+			int r2, g2, b2;
+
+			double x = (double)j / (double)width;
+			double y = (double)i / (double)height;
+			double Y = 1.0;
+
+			double L = 90;
+			double u = x * 512 - 255;
+			double v = y * 512 - 255;
+
+			double newX, newY, newZ;
+			newY = y;
+			newX = (x / y)*Y;
+			newZ = ((1 - x - y) / y)*Y;
+			double lin_R, lin_G, lin_B;
+			tie(lin_R,lin_G,lin_B)	=convertXYZtoRGB(newX, newY, newZ);
+			//cout << lin_R;
+
+			double nonLin_R, nonLin_G, nonLin_B;
+			tie(nonLin_R, nonLin_G, nonLin_B) = convertLinRGB_2_NonlinRGB(lin_R,lin_G,lin_B);
+
+
+			double L_X, L_Y, L_Z;
+			tie(L_X, L_Y, L_Z) = convertLuv2XYZ(L, u, v);
+			double L_lin_R, L_lin_G, L_lin_B;
+			tie(L_lin_R, L_lin_G, L_lin_B) = convertXYZtoRGB(L_X, L_Y, L_Z);
+			double L_nonLin_R, L_nonLin_G, L_nonLin_B;
+			tie(L_nonLin_R, L_nonLin_G, L_nonLin_B) = convertLinRGB_2_NonlinRGB(L_lin_R, L_lin_G, L_lin_B);
+
+
+
+			 
+
+
+
+
+			//double newX = 
+
+
+			/* Your code should be placed here
+			It should translate xyY to byte sRGB
+			and Luv to byte sRGB
+			*/
+			//r1 = (int)(x * 255);
+			//g1 = (int)(y * 255);
+			//b1 = (int)(1.0 * 255);
+			r1 = nonLin_R;
+			g1 = nonLin_G;
+			b1 = nonLin_B;
+
+			
+			r2 = L_nonLin_R;
+			g2 = L_nonLin_G;
+			b2 = L_nonLin_B;
+
+			//r2 = (int)(1.0 * 255);
+			//g2 = (int)(x * 255);
+			//b2 = (int)(y * 255);
+
+			// this is the end of your code
+
+			RED1[i][j] = r1;
+			GREEN1[i][j] = g1;
+			BLUE1[i][j] = b1;
+			RED2[i][j] = r2;
+			GREEN2[i][j] = g2;
+			BLUE2[i][j] = b2;
+		}
+
+
+	Mat R1(height, width, CV_8UC1);
+	Mat G1(height, width, CV_8UC1);
+	Mat B1(height, width, CV_8UC1);
+
+	Mat R2(height, width, CV_8UC1);
+	Mat G2(height, width, CV_8UC1);
+	Mat B2(height, width, CV_8UC1);
+
+	for (int i = 0; i < height; i++)
+		for (int j = 0; j < width; j++) {
+
+			R1.at<uchar>(i, j) = RED1[i][j];
+			G1.at<uchar>(i, j) = GREEN1[i][j];
+			B1.at<uchar>(i, j) = BLUE1[i][j];
+
+			R2.at<uchar>(i, j) = RED2[i][j];
+			G2.at<uchar>(i, j) = GREEN2[i][j];
+			B2.at<uchar>(i, j) = BLUE2[i][j];
+		}
+
+	Mat xyY;
+	Mat xyY_planes[] = { B1, G1, R1 };
+	merge(xyY_planes, 3, xyY);
+	namedWindow("xyY", CV_WINDOW_AUTOSIZE);
+	imshow("xyY", xyY);
+
+	Mat Luv;
+	Mat Luv_planes[] = { B2, G2, R2 };
+	merge(Luv_planes, 3, Luv);
+	namedWindow("Luv", CV_WINDOW_AUTOSIZE);
+	imshow("Luv", Luv);
+	waitKey(0); // Wait for a keystroke
+	return(0);
+}
