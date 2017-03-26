@@ -1,0 +1,457 @@
+
+
+
+// working program 2 
+
+
+
+
+
+
+
+
+
+#include "opencv2/highgui.hpp"
+#include <iostream>
+#include <tuple>
+
+using namespace cv;
+using namespace std;
+
+
+std::tuple<double, double, double>	convertNonLinRGB_2_LinRGB(double R, double G, double B) {
+	
+		double Lin_R, Lin_G, Lin_B;
+		if (R < 0) {
+			R = 0;
+		}
+	
+		if (R > 1) {
+			R = 1;
+		}
+	
+		if (G < 0) {
+			G = 0;
+		}
+		if (G > 1) {
+			G = 1;
+		}
+		if (B < 0) {
+			B = 0;
+		}
+		if (B > 1) {
+			B = 1;
+		}
+	
+		if (R < 0.03928) {
+			Lin_R = R / 12.92;
+		}
+		else {
+			Lin_R = pow(((R+0.055)/1.055),2.4);
+
+		}
+
+		if (G < 0.03928) {
+			Lin_G = G / 12.92;
+		}
+		else {
+			Lin_G = pow(((G + 0.055) / 1.055), 2.4);
+
+		}
+
+		if (B< 0.03928) {
+			Lin_B = B / 12.92;
+		}
+		else {
+			Lin_B = pow(((B + 0.055) / 1.055), 2.4);
+		}
+
+
+
+		return std::make_tuple(Lin_R, Lin_G, Lin_B);
+	}
+	
+
+
+std::tuple<double, double, double>	convertLinRGB_2_XYZ(double R, double G, double B) {
+	double x,y,z;
+	if (R < 0) {
+		R = 0;
+	}
+
+	if (R > 1) {
+		R = 1;
+	}
+
+	if (G < 0) {
+		G = 0;
+	}
+	if (G > 1) {
+		G = 1;
+	}
+	if (B < 0) {
+		B = 0;
+	}
+	if (B > 1) {
+		B = 1;
+	}
+
+	x = (0.412453*R) + (0.35758*G) + (0.180423*B);
+	y = (0.212671*R) + (0.71516*G) + (0.072169*B);
+	z = (0.019334*R) + (0.119193*G) + (0.950227*B);
+
+	return std::make_tuple(x, y, z);
+}
+
+std::tuple<double, double, double>	convertXYZ_2_LUV(double X, double Y, double Z) {
+	double L,u,v;
+	double denom = 0.95 + 15 + (3 * 1.09);
+	double u_w = (4 * (0.95)) / denom;
+	double v_w = 9 / denom;
+	double t = Y;
+	if (t > 0.008856) {
+		L = 116 * (pow(t, 0.3333)) - 16;
+	}
+	else {
+		L = 903.3*t;
+	}
+	if (L < 0) {
+		L = 0;
+	}
+	if (L > 100) {
+		L = 100;
+	}
+	double  d = X + 15 * Y + 3 * Z;
+	double u_dash = (4 * X) / d;
+	double v_dash = (9 * Y) / d;
+	u = 13 * L*(u_dash - u_w);
+	v = 13 * L*(v_dash - v_w);
+	return std::make_tuple(L,u,v);
+	}
+	
+
+double linearScale_Luv(double L,double min,double max) {
+	double l_scaled = 0;
+	l_scaled = ((L - min) * 100) / (max - min);
+	if (l_scaled < 0) {
+		l_scaled = 0;
+	}
+	if (l_scaled > 100) {
+		l_scaled = 100;
+	}
+
+
+	return l_scaled;
+
+}
+
+std::tuple<double, double, double> convertLUV_2_XYZ(double L, double u, double v) {
+	double L_X, L_Y, L_Z;
+	double denom = 0.95 + 15 + (3 * 1.09);
+	double u_w = (4 * (0.95)) / denom;
+	double v_w = 9 / denom;
+	double denom2 = 13 * L;
+	double u_dash = (u + 13 * (u_w)*L) / denom2;
+	double v_dash = (v + 13 * (v_w)*L) / denom2;
+	if (L > 7.9996) {
+		double temp = (L + 16) / 116;
+		L_Y = pow(temp, 3);
+	}
+	else {
+		L_Y = L / 903.3;
+	}
+
+	L_X = L_Y *2.25*(u_dash / v_dash);
+	L_Z = L_Y*((3 - (.75*u_dash) - 5 * v_dash) / v_dash);
+	return std::make_tuple(L_X, L_Y, L_Z);
+
+}
+
+
+std::tuple<double, double, double>	convertXYZtoRGB(double X, double Y, double Z) {
+	double lin_R, lin_G, lin_B;
+	lin_R = (3.240479*X) - (1.537515*Y) - (0.498535*Z);
+	lin_G = (-0.969256*X) + (1.875991*Y) + (0.041556*Z);
+	lin_B = (0.055648*X) - (0.2040431*Y) + (1.057311*Z);
+	if (lin_R < 0) {
+		lin_R = 0;
+	}
+	if (lin_R > 1) {
+		lin_R = 1;
+	}
+	if (lin_G < 0) {
+		lin_G = 0;
+	}
+	if (lin_G > 1) {
+		lin_G = 1;
+	}
+	if (lin_B < 0) {
+		lin_B = 0;
+	}
+	if (lin_B > 1) {
+		lin_B = 1;
+	}
+	return std::make_tuple(lin_R, lin_G, lin_B);
+}
+
+std::tuple<double, double, double>	convertLinRGB_2_NonlinRGB(double R, double G, double B) {
+
+	double nonLin_R, nonLin_G, nonLin_B;
+	if (R < 0) {
+		R = 0;
+	}
+
+	if (R > 1) {
+		R = 1;
+	}
+
+	if (G < 0) {
+		G = 0;
+	}
+	if (G > 1) {
+		G = 1;
+	}
+	if (B < 0) {
+		B = 0;
+	}
+	if (B > 1) {
+		B = 1;
+	}
+
+	if (R < 0.00304) {
+		nonLin_R = 12.92*R;
+	}
+	else {
+		nonLin_R = 1.055*pow(R, (1 / 2.4)) - 0.055;
+	}
+
+	if (G < 0.00304) {
+		nonLin_G = 12.92*G;
+	}
+	else {
+		nonLin_G = 1.055*pow(G, (1 / 2.4)) - 0.055;
+	}
+	if (B < 0.00304) {
+		nonLin_B = 12.92*B;
+	}
+	else {
+		nonLin_B = 1.055*pow(B, (1 / 2.4)) - 0.055;
+	}
+	return std::make_tuple(nonLin_R, nonLin_G, nonLin_B);
+}
+
+
+
+
+
+void runOnWindow(int W1, int H1, int W2, int H2, Mat inputImage, char *outName) {
+	int rows = inputImage.rows;
+	int cols = inputImage.cols;
+
+	vector<Mat> i_planes;
+	split(inputImage, i_planes);
+	Mat iB = i_planes[0];
+	Mat iG = i_planes[1];
+	Mat iR = i_planes[2];
+
+	// dynamically allocate RGB arrays of size rows x cols
+	int** R = new int*[rows];
+	int** G = new int*[rows];
+	int** B = new int*[rows];
+	
+	double** R1 = new double*[rows];
+	double** G1 = new double*[rows];
+	double** B1 = new double*[rows];
+
+	
+	double** L = new double*[rows];
+	double** L_scaled = new double*[rows];
+	double** u = new double*[rows];
+	double** v = new double*[rows];
+
+	for (int i = 0; i < rows; i++) {
+		R[i] = new int[cols];
+		G[i] = new int[cols];
+		B[i] = new int[cols];
+
+		R1[i] = new double[cols];
+		G1[i] = new double[cols];
+		B1[i] = new double[cols];
+		L_scaled[i] = new double[cols];
+		L[i] = new double[cols];
+		u[i] = new double[cols];
+		v[i] = new double[cols];
+
+	}
+	double L_max, L_min;
+	for (int i = 0; i < rows; i++)
+		for (int j = 0; j < cols; j++) {
+			R[i][j] = iR.at<uchar>(i, j);
+			G[i][j] = iG.at<uchar>(i, j);
+			B[i][j] = iB.at<uchar>(i, j);
+		}
+
+	for (int i = 0; i < rows; i++)
+		for (int j = 0; j < cols; j++) {
+			/*R[i][j] = R[i][j] / 255;
+			G[i][j] = G[i][j] / 255;
+			B[i][j] = B[i][j] / 255;
+*/
+			R1[i][j] = float(R[i][j]/255.0);
+			G1[i][j] = float(G[i][j]/255.0);
+			B1[i][j] = float(B[i][j]/255.0) ;
+			double Lin_R, Lin_G, Lin_B;
+			tie(Lin_R, Lin_G, Lin_B) = convertNonLinRGB_2_LinRGB(R1[i][j], G1[i][j], B1[i][j]);
+			double new_X, new_Y, new_Z;
+			tie(new_X, new_Y, new_Z) = convertLinRGB_2_XYZ(Lin_R, Lin_G, Lin_B);
+			//double new_L, new_U, new_V;
+			tie(L[i][j],u[i][j],v[i][j]) = convertXYZ_2_LUV(new_X, new_Y, new_Z);
+
+
+			/*double new_L_scaled, new_U, new_V;
+			tie(new_L, new_U, new_V) = convertXYZ_2_LUV(new_X, new_Y, new_Z);
+*/
+			
+		}
+	L_min = 100; L_max = 0;
+	for (int i = H1; i <= H2; i++)
+		
+		for (int j = W1; j <= W2; j++) {
+			//double L_min, L_max;
+			
+			if (L[i][j] < L_min) {
+				L_min = L[i][j];
+			}
+			if (L[i][j] > L_max) {
+				L_max = L[i][j];
+			}
+		}
+
+	for (int i = 0; i < rows; i++)
+		for (int j = 0; j < cols; j++) {
+			
+			L_scaled[i][j] = linearScale_Luv(L[i][j],L_min,L_max);
+			if (L_scaled[i][j] < 0) {
+				L_scaled[i][j] = 0;
+			}
+			if (L_scaled[i][j] > 100) {
+				L_scaled[i][j] = 100;
+			}
+			double new_X, new_Y, new_Z;
+			tie(new_X, new_Y, new_Z) = convertLUV_2_XYZ(L_scaled[i][j],u[i][j],v[i][j]);
+
+			double lin_R, lin_G, lin_B;
+			tie(lin_R, lin_G, lin_B) = convertXYZtoRGB(new_X, new_Y, new_Z);
+			double nonlin_R, nonlin_G, nonlin_B;
+			tie(nonlin_R, nonlin_G, nonlin_B) = convertLinRGB_2_NonlinRGB(lin_R, lin_G, lin_B);
+			R[i][j] = nonlin_R*255;
+			G[i][j] = nonlin_G*255;
+			B[i][j] = nonlin_B*255;
+
+		}
+
+/*
+		   The transformation should be based on the
+		   historgram of the pixels in the W1,W2,H1,H2 range.
+		   The following code goes over these pixels
+*/
+	/*for (int i = H1; i <= H2; i++)
+		for (int j = W1; j <= W2; j++) {
+			double r = R[i][j];
+			double g = G[i][j];
+			double b = B[i][j];
+			int gray = (int)(0.3*r + 0.6*g + 0.1*b + 0.5);
+
+			R[i][j] = G[i][j] = B[i][j] = gray;
+		}
+
+
+
+
+		*/
+
+	Mat oR(rows, cols, CV_8UC1);
+	Mat oG(rows, cols, CV_8UC1);
+	Mat oB(rows, cols, CV_8UC1);
+	for (int i = 0; i < rows; i++)
+		for (int j = 0; j < cols; j++) {
+			oR.at<uchar>(i, j) = R[i][j];;
+			oG.at<uchar>(i, j) = G[i][j];;
+			oB.at<uchar>(i, j) = B[i][j];;
+		}
+
+	Mat o_planes[] = { oB, oG, oR };
+	Mat outImage;
+	merge(o_planes, 3, outImage);
+
+	namedWindow("output", CV_WINDOW_AUTOSIZE);
+	imshow("output", outImage);
+	imwrite(outName, outImage);
+}
+
+int main(int argc, char** argv) {
+	/*if (argc != 7) {
+		cerr << argv[0] << ": "
+			<< "got " << argc - 1
+			<< " arguments. Expecting six: w1 h1 w2 h2 ImageIn ImageOut."
+			<< endl;
+		cerr << "Example: proj1b 0.2 0.1 0.8 0.5 fruits.jpg out.bmp" << endl;
+		return(-1);
+	}*/
+
+	double w1 = 0.3;
+	double h1 = 0.3;
+	double w2 = 0.7;
+	double h2 = 0.7;
+	char *inputName = "C:\\Users\\tejamukka\\Desktop\\fruits.jpg";
+	char *outputName = "output.bmp";
+/*
+	double w1 = atof(argv[1]);
+	double h1 = atof(argv[2]);
+	double w2 = atof(argv[3]);
+	double h2 = atof(argv[4]);`
+	char *inputName = argv[5];
+	char *outputName = argv[6];
+*/
+	if (w1<0 || h1<0 || w2 <= w1 || h2 <= h1 || w2>1 || h2>1) {
+		cerr << " arguments must satisfy 0 <= w1 < w2 <= 1"
+			<< " ,  0 <= h1 < h2 <= 1" << endl;
+		return(-1);
+	}
+
+	Mat inputImage = imread(inputName, CV_LOAD_IMAGE_UNCHANGED);
+	if (inputImage.empty()) {
+		cout << "Could not open or find the image " << inputName << endl;
+		return(-1);
+	}
+
+	string windowInput("input: ");
+	windowInput += inputName;
+
+	namedWindow(windowInput, CV_WINDOW_AUTOSIZE);
+	imshow(windowInput, inputImage);
+
+	if (inputImage.type() != CV_8UC3) {
+		cout << inputName << " is not a standard color image  " << endl;
+		return(-1);
+	}
+
+	int rows = inputImage.rows;
+	int cols = inputImage.cols;
+	int W1 = (int)(w1*(cols - 1));
+	int H1 = (int)(h1*(rows - 1));
+	int W2 = (int)(w2*(cols - 1));
+	int H2 = (int)(h2*(rows - 1));
+
+	runOnWindow(W1, H1, W2, H2, inputImage, outputName);
+
+	waitKey(0); // Wait for a keystroke
+	return(0);
+}
+
+
+
+
+
+ //End of program 2 
+
